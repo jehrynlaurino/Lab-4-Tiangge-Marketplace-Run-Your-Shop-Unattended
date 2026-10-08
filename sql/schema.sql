@@ -2,6 +2,9 @@
 -- Recreates the full schema from scratch, including seed data. Do not
 -- hand-edit tables in Supabase - always change this script and re-run it.
 
+drop table if exists channel_order_items;
+drop table if exists channel_orders;
+drop table if exists channel_feed_cursor;
 drop table if exists notifications;
 drop table if exists supplier_orders;
 drop table if exists order_items;
@@ -45,6 +48,34 @@ create table supplier_orders (
     status varchar(20) not null check (status in ('PENDING', 'SUBMITTED', 'PICKING', 'SHIPPED', 'DELIVERED', 'FAILED')),
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
+);
+
+-- Lab 4: Tiangge marketplace integration.
+
+create table channel_feed_cursor (
+    id smallint primary key,
+    last_seq bigint not null default 0,
+    updated_at timestamptz not null default now(),
+    check (id = 1)
+);
+
+insert into channel_feed_cursor (id, last_seq) values (1, 0);
+
+create table channel_orders (
+    tiangge_order_id varchar(40) primary key,
+    shop_order_id bigint,
+    decision varchar(20) not null check (decision in ('PENDING', 'ACCEPTED', 'REJECTED', 'BACKORDERED', 'CANCELLED')),
+    pending_action varchar(20) check (pending_action in ('DECISION', 'CANCELLATION', 'RESOLUTION')),
+    synced boolean not null default false,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create table channel_order_items (
+    channel_order_item_id bigserial primary key,
+    tiangge_order_id varchar(40) not null references channel_orders (tiangge_order_id) on delete cascade,
+    product_id varchar(50) not null,
+    quantity integer not null check (quantity > 0)
 );
 
 insert into inventory (product_id, name, stock)

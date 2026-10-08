@@ -7,10 +7,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Package-private on purpose: Spring discovers the bean, while other modules
- * cannot name or inject this implementation directly.
- */
 @Service
 class InventoryServiceImpl implements InventoryService {
     private final InventoryRepository inventoryRepository;
@@ -39,7 +35,7 @@ class InventoryServiceImpl implements InventoryService {
             return ReservationResult.rejected("Quantity must be at least 1.", null);
         }
 
-        Optional<InventoryEntity> item = inventoryRepository.findById(productId);
+        Optional<InventoryEntity> item = inventoryRepository.findForUpdate(productId);
         if (item.isEmpty()) {
             return ReservationResult.rejected("Product " + productId + " was not found.", null);
         }
@@ -53,6 +49,8 @@ class InventoryServiceImpl implements InventoryService {
 
         inventory.decreaseStock(quantity);
         InventoryItem remainingInventory = inventory.toItem();
+
+        eventPublisher.publishEvent(new InventoryStockChanged(remainingInventory.productId(), remainingInventory.stock()));
 
         if (remainingInventory.stock() < lowStockThreshold) {
             eventPublisher.publishEvent(new LowStockEvent(
@@ -71,7 +69,10 @@ class InventoryServiceImpl implements InventoryService {
         if (quantity <= 0) {
             return;
         }
-        inventoryRepository.findById(productId).ifPresent(inventory -> inventory.increaseStock(quantity));
+        inventoryRepository.findForUpdate(productId).ifPresent(inventory -> {
+            inventory.increaseStock(quantity);
+            eventPublisher.publishEvent(new InventoryStockChanged(productId, inventory.getStock()));
+        });
     }
 
     @Override

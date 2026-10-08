@@ -1,5 +1,6 @@
 package edu.cit.laurino.supplier;
 
+import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,5 +65,18 @@ class SupplierGatewayImpl implements SupplierGateway {
         }
 
         return new ReorderResult(false, "LegacySupply unavailable, queued for retry: " + outcome.failureReason(), order.getId(), null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<String> supplierSkuFor(String productId) {
+        LegacySupplyProperties.ProductMapping mapping = properties.mappingFor(productId);
+        return mapping == null ? Optional.empty() : Optional.ofNullable(mapping.getSku());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean hasOpenPurchaseOrder(String productId) {
+        return supplierOrderRepository.existsByProductIdAndStatusIn(productId, SupplierOrderStatus.openStatuses());
     }
 }

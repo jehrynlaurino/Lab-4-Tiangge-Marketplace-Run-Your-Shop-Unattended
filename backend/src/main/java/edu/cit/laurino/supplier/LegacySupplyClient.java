@@ -1,6 +1,7 @@
 package edu.cit.laurino.supplier;
 
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+import edu.cit.laurino.InstanceContext;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +15,7 @@ import org.springframework.web.client.RestClientResponseException;
  * call with backoff (Part D), refreshes the session once on 401, and treats
  * 429/503/timeouts as retryable versus other 4xx as terminal - a bad SKU or
  * bad quantity will never succeed no matter how many times it's retried.
+ * Every call carries X-Client-Instance (Lab 4 requirement).
  */
 @Component
 class LegacySupplyClient {
@@ -23,10 +25,15 @@ class LegacySupplyClient {
 
     private final RestClient restClient;
     private final LegacySupplySessionManager sessionManager;
+    private final InstanceContext instanceContext;
 
-    LegacySupplyClient(RestClient legacySupplyRestClient, LegacySupplySessionManager sessionManager) {
+    LegacySupplyClient(
+            RestClient legacySupplyRestClient,
+            LegacySupplySessionManager sessionManager,
+            InstanceContext instanceContext) {
         this.restClient = legacySupplyRestClient;
         this.sessionManager = sessionManager;
+        this.instanceContext = instanceContext;
     }
 
     SubmitOutcome submitPurchaseOrder(String supplierSku, int qty, String buyerRef, String requestId) {
@@ -40,6 +47,7 @@ class LegacySupplyClient {
                         .contentType(MediaType.APPLICATION_XML)
                         .header("X-LS-Session", sessionManager.currentSession())
                         .header("X-Request-Id", requestId)
+                        .header("X-Client-Instance", instanceContext.instanceId())
                         .body(body)
                         .retrieve()
                         .body(PurchaseOrderAckXml.class);
@@ -79,6 +87,7 @@ class LegacySupplyClient {
             PurchaseOrderStatusXml status = restClient.get()
                     .uri("/purchase-orders/{poNumber}", poNumber)
                     .header("X-LS-Session", sessionManager.currentSession())
+                    .header("X-Client-Instance", instanceContext.instanceId())
                     .retrieve()
                     .body(PurchaseOrderStatusXml.class);
             return status != null ? Optional.of(status.statusCode) : Optional.empty();

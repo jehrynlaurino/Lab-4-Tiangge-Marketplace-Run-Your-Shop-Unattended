@@ -19,6 +19,15 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+  task:
+    scheduling:
+      pool:
+        # Several independent @Scheduled jobs now run (heartbeat, feed poll,
+        # Lab 3's pending-reorder and delivery-tracking jobs, the channel
+        # reconciler). Spring Boot's default scheduler pool is a single
+        # thread, which would make them queue behind each other - risking a
+        # late heartbeat under load. Give each room to run independently.
+        size: 8
 
 server:
   port: 8080
@@ -34,9 +43,6 @@ app:
     api-key: ${LS_API_KEY}
     pending-retry-interval-ms: 60000
     tracking-poll-interval-ms: 45000
-    # Replace these SKUs/pack sizes with the REAL values from your own
-    # GET /catalog probe (Part B) before running this. Add more entries here
-    # for every Inventory product you want auto-reordered.
     product-map:
       P100:
         sku: YEU-4293
@@ -47,3 +53,16 @@ app:
       P300:
         sku: YEU-7363
         pack-size: 24
+  tiangge:
+    base-url: https://legacysupply.onrender.com/tiangge/v1
+    client-id: ${LS_CLIENT_ID}
+    api-key: ${LS_API_KEY}
+    app-name: laurino-shop
+    heartbeat-interval-ms: 30000
+    feed-poll-interval-ms: 5000
+    feed-poll-initial-delay-ms: 3000
+    reconcile-interval-ms: 20000
+    listed-products:
+      - P100
+      - P200
+      - P300
